@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>GitHub 雲端倉儲系統</title>
+</head>
+<body class="bg-slate-100 min-h-screen p-4">
+    <div class="max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+        <!-- 標題 -->
+        <div class="bg-slate-800 p-6 text-white">
+            <h1 class="text-2xl font-bold flex items-center gap-2">📦 簡易倉儲系統</h1>
+            <p id="status" class="text-slate-400 text-xs mt-2">系統準備就緒</p>
+        </div>
+
+        <!-- 功能導覽 -->
+        <div class="flex border-b text-sm font-medium bg-slate-50">
+            <button onclick="loadInventory()" class="flex-1 py-4 hover:bg-white border-b-2 border-transparent hover:border-blue-500 transition">庫存總覽</button>
+            <button onclick="showLogs()" class="flex-1 py-4 hover:bg-white border-b-2 border-transparent hover:border-blue-500 transition">歷史明細</button>
+            <button onclick="showSettings()" class="flex-1 py-4 hover:bg-white border-b-2 border-transparent hover:border-blue-500 transition">系統管理</button>
+        </div>
+
+        <!-- 主要內容顯示區 -->
+        <div id="main-content" class="p-6 space-y-4 min-h-[300px]">
+            <div class="text-center text-slate-400 mt-10">
+                請點擊上方按鈕讀取資料
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🚀 請在此處填入妳的 Google Apps Script 網址
+        const API_URL = "https://script.google.com/macros/s/AKfycbwK-DI7YU5iYgWoDlVXarDSpbV9ZMRn_fzRspteD3hvFYy24e1MsmZOtBpNnH375hbZjA/exec";
+
+        // --- 功能模組 ---
+
+        // 1. 讀取庫存
+        async function loadInventory() {
+            updateStatus("連線中...");
+            try {
+                const res = await fetch(`${API_URL}?action=getInventory`);
+                const data = await res.json();
+                let html = '<h3 class="font-bold text-slate-700 mb-3">當前庫存</h3><div class="space-y-3">';
+                data.forEach(item => {
+                    html += `
+                    <div class="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div>
+                            <div class="font-bold text-slate-800">${item.name}</div>
+                            <div class="text-xs text-slate-400">#${item.id}</div>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="text-xl font-mono font-bold">${item.stock}</span>
+                            <div class="flex flex-col gap-1">
+                                <button onclick="quickMove('${item.id}', 'IN')" class="bg-emerald-500 text-white text-[10px] px-2 py-1 rounded">入庫</button>
+                                <button onclick="quickMove('${item.id}', 'OUT')" class="bg-rose-500 text-white text-[10px] px-2 py-1 rounded">出庫</button>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+                render(html);
+                updateStatus("更新完成");
+            } catch (e) {
+                updateStatus("讀取失敗，請檢查 URL");
+            }
+        }
+
+        // 2. 快速增減庫存
+        async function quickMove(id, type) {
+            updateStatus("傳送指令...");
+            await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "addTransaction", id: id, amount: 1, type: type })
+            });
+            loadInventory();
+        }
+
+        // 3. 顯示管理介面
+        function showSettings() {
+            const html = `
+            <div class="space-y-6">
+                <div class="bg-blue-50 p-4 rounded-xl">
+                    <h3 class="font-bold text-blue-800 mb-3 text-sm">🆕 新增品項</h3>
+                    <input id="newId" placeholder="貨號" class="w-full mb-2 p-2 border rounded-lg text-sm">
+                    <input id="newName" placeholder="品名" class="w-full mb-2 p-2 border rounded-lg text-sm">
+                    <input id="newQty" type="number" placeholder="初始數量" class="w-full mb-3 p-2 border rounded-lg text-sm">
+                    <button onclick="submitNewProduct()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold">確認建檔</button>
+                </div>
+            </div>`;
+            render(html);
+        }
+
+        // 4. 送出新產品
+        async function submitNewProduct() {
+            const id = document.getElementById('newId').value;
+            const name = document.getElementById('newName').value;
+            const initial = document.getElementById('newQty').value;
+            if(!id || !name) return alert("請完整輸入");
+            
+            updateStatus("建檔中...");
+            await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({ action: "addProduct", id: id, name: name, initial: initial })
+            });
+            alert("已成功建檔");
+            loadInventory();
+        }
+
+        // --- 工具函式 ---
+        function render(content) { document.getElementById('main-content').innerHTML = content; }
+        function updateStatus(msg) { document.getElementById('status').innerText = msg; }
+    </script>
+</body>
+</html>
