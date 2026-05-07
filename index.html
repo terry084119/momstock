@@ -10,7 +10,6 @@
         .tab-active { border-bottom: 4px solid #2563eb; color: #2563eb; font-weight: 900; }
         .item-name { font-size: 1.15rem; font-weight: 700; color: #1e293b; }
         .item-id { font-size: 0.85rem; color: #64748b; font-family: monospace; }
-        /* 增加載入動畫感 */
         .loading { opacity: 0.5; pointer-events: none; }
     </style>
 </head>
@@ -71,8 +70,8 @@
             <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <div class="p-4 bg-slate-50 border-b font-black text-slate-700">變動明細表</div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 text-slate-400 font-bold">
+                    <table class="w-full text-left text-[11px]">
+                        <thead class="bg-slate-50 text-slate-400 font-bold text-[10px]">
                             <tr>
                                 <th class="p-3">時間 / 品名</th>
                                 <th class="p-3 text-center">變動</th>
@@ -94,10 +93,25 @@
         let logs = [];
         let currentType = 'IN';
 
-        // 建立 ID 對照名稱的 Map
         function getName(id) {
             const item = inventory.find(i => i.id === id);
             return item ? item.name : id;
+        }
+
+        // 時間格式化函數：將原始字串轉為 YYYY/MM/DD HH:mm
+        function formatDateTime(dtStr) {
+            if(!dtStr) return '-';
+            try {
+                const date = new Date(dtStr.replace(/-/g, "/"));
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                const hh = String(date.getHours()).padStart(2, '0');
+                const mm = String(date.getMinutes()).padStart(2, '0');
+                return `${y}/${m}/${d} ${hh}:${mm}`;
+            } catch(e) {
+                return dtStr;
+            }
         }
 
         async function switchTab(tab) {
@@ -107,7 +121,6 @@
             });
             document.getElementById('sec-'+tab).classList.remove('hidden');
             document.getElementById('tab-'+tab).classList.add('tab-active');
-            // 切換分頁時背景刷新，不阻塞介面
             refreshData(false); 
         }
 
@@ -151,13 +164,13 @@
             tableBody.innerHTML = logs.map(l => `
                 <tr class="hover:bg-slate-50 log-row">
                     <td class="p-3">
-                        <div class="text-[10px] text-slate-400">${l.time.split(' ')[1]}</div>
+                        <div class="text-[9px] text-slate-400 font-mono">${formatDateTime(l.time)}</div>
                         <div class="font-bold text-slate-700 truncate w-28">${getName(l.id)}</div>
                     </td>
                     <td class="p-3 text-center font-black ${l.amount > 0 ? 'text-emerald-500' : 'text-rose-500'}">
                         ${l.amount > 0 ? '+' : ''}${l.amount}
                     </td>
-                    <td class="p-3 text-slate-400 text-[10px]">${l.note || '-'}</td>
+                    <td class="p-3 text-slate-400 text-[10px] leading-tight">${l.note || '-'}</td>
                     <td class="p-3 text-right">
                         <button onclick="delLog(${l.rowIdx})" class="text-slate-300 hover:text-rose-500 text-lg">✕</button>
                     </td>
@@ -177,7 +190,7 @@
             const id = document.getElementById('op-id').value;
             const amt = document.getElementById('op-amt').value;
             const note = document.getElementById('op-note').value;
-            if(!amt) return;
+            if(!amt) return alert("請輸入數量");
 
             const btn = document.getElementById('btn-submit');
             btn.innerText = "同步中...";
