@@ -8,13 +8,13 @@
     <style>
         button { touch-action: manipulation; }
         .tab-active { border-bottom: 4px solid #2563eb; color: #2563eb; font-weight: 900; }
-        /* 優化表單文字與間距 */
         .item-name { font-size: 1.15rem; font-weight: 700; color: #1e293b; }
-        .item-id { font-size: 0.85rem; color: #475569; font-family: monospace; }
+        .item-id { font-size: 0.85rem; color: #64748b; font-family: monospace; }
+        /* 增加載入動畫感 */
+        .loading { opacity: 0.5; pointer-events: none; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800">
-    <!-- 雙分頁導覽 -->
     <nav class="sticky top-0 bg-white shadow-md z-50">
         <div class="flex justify-around text-base">
             <button onclick="switchTab('manage')" id="tab-manage" class="flex-1 py-4 tab-active">⚙️ 貨品管理</button>
@@ -22,39 +22,37 @@
         </div>
     </nav>
 
-    <main class="max-w-md mx-auto p-4 mb-20">
+    <main id="main-content" class="max-w-md mx-auto p-4 mb-20">
         <!-- 1. 貨品管理分頁 -->
         <section id="sec-manage" class="space-y-6">
-            <!-- 進出貨操作 -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <h3 class="text-sm font-black text-blue-600 mb-4 border-l-4 border-blue-600 pl-2">快速進出貨</h3>
                 <label class="block text-xs font-bold text-slate-400 mb-1">選擇貨品</label>
-                <select id="op-id" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-lg mb-4 outline-none focus:border-blue-500"></select>
+                <select id="op-id" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-lg mb-4 outline-none"></select>
 
                 <div class="grid grid-cols-2 gap-3 mb-4">
                     <button onclick="setOpType('IN')" id="btn-in" class="py-4 rounded-xl border-2 border-emerald-500 text-emerald-600 font-bold bg-emerald-50 text-lg">進貨 ⬇️</button>
                     <button onclick="setOpType('OUT')" id="btn-out" class="py-4 rounded-xl border-2 border-slate-200 text-slate-400 font-bold text-lg">出貨 ⬆️</button>
                 </div>
 
-                <input type="number" id="op-amt" placeholder="輸入變動數量" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-xl font-bold mb-4 outline-none">
-                <textarea id="op-note" rows="2" placeholder="備註筆記 (可不填)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm mb-4 outline-none"></textarea>
-                <button onclick="submitOp()" id="btn-submit" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg active:bg-blue-700 shadow-lg shadow-blue-100">確認提交</button>
+                <input type="number" id="op-amt" placeholder="輸入數量" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-xl font-bold mb-4 outline-none">
+                <textarea id="op-note" rows="2" placeholder="備註 (選填)" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm mb-4 outline-none"></textarea>
+                <button onclick="submitOp()" id="btn-submit" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg">確認提交</button>
             </div>
 
-            <!-- 新增/刪除品項 -->
             <div class="bg-slate-200/50 p-6 rounded-2xl border border-dashed border-slate-300">
-                <h3 class="text-sm font-black text-slate-500 mb-4">品項基本資料管理</h3>
-                <div class="space-y-3">
+                <h3 class="text-sm font-black text-slate-500 mb-4">系統建檔管理</h3>
+                <div class="space-y-3 mb-6">
                     <input id="new-id" placeholder="新貨號" class="w-full p-3 bg-white rounded-lg border border-slate-200">
                     <input id="new-name" placeholder="新編品名" class="w-full p-3 bg-white rounded-lg border border-slate-200">
-                    <input id="new-qty" type="number" placeholder="起始庫存量" class="w-full p-3 bg-white rounded-lg border border-slate-200">
-                    <button onclick="addNewItem()" class="w-full bg-slate-700 text-white py-3 rounded-lg font-bold text-sm">建立新貨品檔</button>
+                    <input id="new-qty" type="number" placeholder="起始庫存" class="w-full p-3 bg-white rounded-lg border border-slate-200">
+                    <button onclick="addNewItem()" class="w-full bg-slate-700 text-white py-3 rounded-lg font-bold">建立新貨品</button>
                 </div>
-                <div class="mt-6 border-t border-slate-300 pt-4">
-                    <label class="block text-xs font-bold text-slate-400 mb-2">刪除現有品項 (慎用)</label>
+                <div class="border-t border-slate-300 pt-4">
+                    <label class="block text-xs font-bold text-slate-400 mb-2">刪除品項 (會同步刪除 Excel 資料)</label>
                     <div class="flex gap-2">
                         <select id="del-id" class="flex-1 p-2 bg-white border border-slate-200 rounded text-sm"></select>
-                        <button onclick="delProduct()" class="px-4 py-2 bg-rose-100 text-rose-600 rounded font-bold text-sm">刪除</button>
+                        <button onclick="delProduct()" class="px-4 py-2 bg-rose-500 text-white rounded font-bold text-sm">刪除</button>
                     </div>
                 </div>
             </div>
@@ -62,25 +60,21 @@
 
         <!-- 2. 數據總覽分頁 -->
         <section id="sec-status" class="hidden space-y-6">
-            <!-- 庫存清單 -->
             <div class="bg-white p-4 rounded-2xl shadow-sm">
                 <div class="flex justify-between items-end mb-4">
-                    <h3 class="font-black text-slate-700">目前總庫存</h3>
-                    <input type="text" oninput="filterAll(this.value)" placeholder="🔍 快速搜尋..." class="p-2 border-b text-sm outline-none focus:border-blue-500">
+                    <h3 class="font-black text-slate-700">當前庫存</h3>
+                    <input type="text" oninput="filterAll(this.value)" placeholder="🔍 搜尋..." class="p-2 border-b text-sm outline-none">
                 </div>
                 <div id="inv-list" class="space-y-3"></div>
             </div>
 
-            <!-- 歷史變動明細 (表單樣式) -->
             <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-                <div class="p-4 bg-slate-50 border-b">
-                    <h3 class="font-black text-slate-700">變動明細 (表單)</h3>
-                </div>
+                <div class="p-4 bg-slate-50 border-b font-black text-slate-700">變動明細表</div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 text-slate-400 uppercase font-bold">
+                        <thead class="bg-slate-50 text-slate-400 font-bold">
                             <tr>
-                                <th class="p-3">時間/品名</th>
+                                <th class="p-3">時間 / 品名</th>
                                 <th class="p-3 text-center">變動</th>
                                 <th class="p-3">備註</th>
                                 <th class="p-3"></th>
@@ -89,7 +83,7 @@
                         <tbody id="log-table-body" class="divide-y divide-slate-100"></tbody>
                     </table>
                 </div>
-                <div id="log-empty" class="p-10 text-center text-slate-300 hidden">暫無歷史紀錄</div>
+                <div id="log-empty" class="p-10 text-center text-slate-300 hidden">暫無紀錄</div>
             </div>
         </section>
     </main>
@@ -100,14 +94,21 @@
         let logs = [];
         let currentType = 'IN';
 
-        function switchTab(tab) {
+        // 建立 ID 對照名稱的 Map
+        function getName(id) {
+            const item = inventory.find(i => i.id === id);
+            return item ? item.name : id;
+        }
+
+        async function switchTab(tab) {
             ['manage', 'status'].forEach(t => {
                 document.getElementById('sec-'+t).classList.add('hidden');
                 document.getElementById('tab-'+t).classList.remove('tab-active');
             });
             document.getElementById('sec-'+tab).classList.remove('hidden');
             document.getElementById('tab-'+tab).classList.add('tab-active');
-            refreshData();
+            // 切換分頁時背景刷新，不阻塞介面
+            refreshData(false); 
         }
 
         function setOpType(type) {
@@ -116,45 +117,47 @@
             document.getElementById('btn-out').className = type === 'OUT' ? "py-4 rounded-xl border-2 border-rose-500 text-rose-600 font-bold bg-rose-50 text-lg" : "py-4 rounded-xl border-2 border-slate-200 text-slate-400 font-bold text-lg";
         }
 
-        async function refreshData() {
-            const [resInv, resLog] = await Promise.all([
-                fetch(`${API_URL}?action=getInventory`),
-                fetch(`${API_URL}?action=getLogs`)
-            ]);
-            inventory = await resInv.json();
-            logs = await resLog.json();
-            renderAll();
+        async function refreshData(showLoading = true) {
+            if(showLoading) document.getElementById('main-content').classList.add('loading');
+            try {
+                const [resInv, resLog] = await Promise.all([
+                    fetch(`${API_URL}?action=getInventory`),
+                    fetch(`${API_URL}?action=getLogs`)
+                ]);
+                inventory = await resInv.json();
+                logs = await resLog.json();
+                renderAll();
+            } finally {
+                document.getElementById('main-content').classList.remove('loading');
+            }
         }
 
         function renderAll() {
-            // 更新下拉選單
             const options = inventory.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
             document.getElementById('op-id').innerHTML = options;
             document.getElementById('del-id').innerHTML = options;
 
-            // 渲染庫存卡片 (大字體)
             document.getElementById('inv-list').innerHTML = inventory.map(i => `
                 <div class="flex justify-between items-center p-3 border-b border-slate-50 inv-item">
                     <div>
                         <div class="item-name">${i.name}</div>
-                        <div class="item-id">${i.id}</div>
+                        <div class="item-id">編號: ${i.id}</div>
                     </div>
                     <div class="text-2xl font-mono font-black text-blue-600">${i.stock}</div>
                 </div>
             `).join('');
 
-            // 渲染明細表單
             const tableBody = document.getElementById('log-table-body');
             tableBody.innerHTML = logs.map(l => `
                 <tr class="hover:bg-slate-50 log-row">
                     <td class="p-3">
-                        <div class="text-[10px] text-slate-400">${l.time.split(' ')[1]} / ${l.time.split(' ')[0].slice(5)}</div>
-                        <div class="font-bold text-slate-700 truncate w-24">${l.id}</div>
+                        <div class="text-[10px] text-slate-400">${l.time.split(' ')[1]}</div>
+                        <div class="font-bold text-slate-700 truncate w-28">${getName(l.id)}</div>
                     </td>
                     <td class="p-3 text-center font-black ${l.amount > 0 ? 'text-emerald-500' : 'text-rose-500'}">
                         ${l.amount > 0 ? '+' : ''}${l.amount}
                     </td>
-                    <td class="p-3 text-slate-400 text-[10px] italic">${l.note || '-'}</td>
+                    <td class="p-3 text-slate-400 text-[10px]">${l.note || '-'}</td>
                     <td class="p-3 text-right">
                         <button onclick="delLog(${l.rowIdx})" class="text-slate-300 hover:text-rose-500 text-lg">✕</button>
                     </td>
@@ -165,10 +168,7 @@
 
         function filterAll(q) {
             const query = q.toLowerCase();
-            document.querySelectorAll('.inv-item').forEach(el => {
-                el.classList.toggle('hidden', !el.innerText.toLowerCase().includes(query));
-            });
-            document.querySelectorAll('.log-row').forEach(el => {
+            document.querySelectorAll('.inv-item, .log-row').forEach(el => {
                 el.classList.toggle('hidden', !el.innerText.toLowerCase().includes(query));
             });
         }
@@ -177,42 +177,46 @@
             const id = document.getElementById('op-id').value;
             const amt = document.getElementById('op-amt').value;
             const note = document.getElementById('op-note').value;
-            if(!amt) return alert("請輸入數量");
-            document.getElementById('btn-submit').innerText = "處理中...";
+            if(!amt) return;
+
+            const btn = document.getElementById('btn-submit');
+            btn.innerText = "同步中...";
+            btn.disabled = true;
+
             await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'addLog', id, amount: parseFloat(amt), type: currentType, note }) });
-            alert("✅ 提交成功");
+            
             document.getElementById('op-amt').value = "";
             document.getElementById('op-note').value = "";
-            document.getElementById('btn-submit').innerText = "確認提交";
-            refreshData();
+            btn.innerText = "確認提交";
+            btn.disabled = false;
+            refreshData(false);
         }
 
         async function addNewItem() {
             const id = document.getElementById('new-id').value;
             const name = document.getElementById('new-name').value;
             const initial = document.getElementById('new-qty').value || 0;
-            if(!id || !name) return alert("請填寫編號與品名");
+            if(!id || !name) return alert("請填寫資料");
             await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'addProduct', id, name, initial }) });
-            alert("✨ 品項已建立");
             refreshData();
         }
 
         async function delProduct() {
             const id = document.getElementById('del-id').value;
-            if(confirm(`確定刪除 ${id} 嗎？此操作不可逆。`)) {
+            if(confirm(`確定刪除 ${getName(id)} 嗎？Excel 中的品項也將同步移除。`)) {
                 await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteProduct', id }) });
                 refreshData();
             }
         }
 
         async function delLog(idx) {
-            if(confirm("刪除此筆紀錄？")) {
+            if(confirm("刪除此紀錄？")) {
                 await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteLog', rowIdx: idx }) });
-                refreshData();
+                refreshData(false);
             }
         }
 
-        window.onload = refreshData;
+        window.onload = () => refreshData(true);
     </script>
 </body>
 </html>
