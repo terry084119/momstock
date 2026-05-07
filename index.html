@@ -2,154 +2,214 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.tailwindcss.com"></script>
-    <title>專業倉儲管理系統</title>
+    <title>流動倉儲 Pro</title>
+    <style>
+        /* 針對手機觸控優化 */
+        button { touch-action: manipulation; }
+        .tab-active { border-bottom: 3px solid #3b82f6; color: #3b82f6; font-weight: bold; }
+    </style>
 </head>
-<body class="bg-slate-100 p-4">
-    <div class="max-w-4xl mx-auto space-y-4">
-        <!-- 頂部導覽 -->
-        <div class="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
-            <h1 class="font-bold text-xl text-slate-700">📦 雲端倉儲</h1>
-            <div class="space-x-2">
-                <button onclick="viewInventory()" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm">庫存總覽</button>
-                <button onclick="viewLogs()" class="px-4 py-2 bg-slate-600 text-white rounded-lg text-sm">歷史明細</button>
-                <button onclick="viewAddProduct()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm">+ 新增品項</button>
+<body class="bg-slate-50 text-slate-800">
+    <!-- 頂部固定的手機導覽列 -->
+    <nav class="sticky top-0 bg-white shadow-sm z-50">
+        <div class="flex justify-around text-sm border-b">
+            <button onclick="switchTab('op')" id="tab-op" class="flex-1 py-4 tab-active">⚡ 進出貨</button>
+            <button onclick="switchTab('inv')" id="tab-inv" class="flex-1 py-4">📦 總覽</button>
+            <button onclick="switchTab('log')" id="tab-log" class="flex-1 py-4">📜 明細</button>
+            <button onclick="switchTab('set')" id="tab-set" class="flex-1 py-4">⚙️ 設定</button>
+        </div>
+    </nav>
+
+    <main class="max-w-md mx-auto p-4 mb-20">
+        <!-- 1. 進出貨操作區 (手機優化版) -->
+        <section id="sec-op" class="space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase">選擇貨品</label>
+                <select id="op-id" class="w-full p-4 bg-slate-50 border-none rounded-xl text-lg focus:ring-2 focus:ring-blue-500 outline-none mb-4"></select>
+
+                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase">類型</label>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <button onclick="setOpType('IN')" id="btn-in" class="py-4 rounded-xl border-2 border-emerald-500 text-emerald-600 font-bold bg-emerald-50">⬇️ 進貨</button>
+                    <button onclick="setOpType('OUT')" id="btn-out" class="py-4 rounded-xl border-2 border-slate-200 text-slate-400 font-bold">⬆️ 出貨</button>
+                </div>
+
+                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase">變動數量</label>
+                <input type="number" id="op-amt" placeholder="0" class="w-full p-4 bg-slate-50 border-none rounded-xl text-2xl font-mono mb-4 outline-none focus:ring-2 focus:ring-blue-500">
+
+                <label class="block text-xs font-semibold text-slate-400 mb-2 uppercase">備註筆記 (非必填)</label>
+                <textarea id="op-note" rows="3" placeholder="點此輸入說明..." class="w-full p-4 bg-slate-50 border-none rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+
+                <button onclick="submitOp()" id="btn-submit" class="w-full mt-6 bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg shadow-lg shadow-blue-100 active:scale-95 transition">確認送出</button>
             </div>
-        </div>
+        </section>
 
-        <!-- 搜尋列 -->
-        <div class="bg-white p-3 rounded-lg shadow-sm">
-            <input type="text" id="searchInput" oninput="filterData()" placeholder="🔍 搜尋貨號、品名或日期..." class="w-full p-2 border rounded-md">
-        </div>
+        <!-- 2. 庫存總覽區 -->
+        <section id="sec-inv" class="hidden space-y-3">
+            <input type="text" oninput="filterInv(this.value)" placeholder="🔍 搜尋貨號或品名..." class="w-full p-3 rounded-xl border-none shadow-sm mb-2">
+            <div id="inv-list" class="space-y-3">載入中...</div>
+        </section>
 
-        <!-- 主要顯示區 -->
-        <div id="mainContent" class="bg-white p-6 rounded-xl shadow-md min-h-[400px]">
-            正在載入系統...
-        </div>
-    </div>
+        <!-- 3. 歷史明細區 -->
+        <section id="sec-log" class="hidden space-y-3">
+            <input type="text" oninput="filterLog(this.value)" placeholder="🔍 搜尋紀錄..." class="w-full p-3 rounded-xl border-none shadow-sm mb-2">
+            <div id="log-list" class="space-y-2">載入中...</div>
+        </section>
+
+        <!-- 4. 系統管理區 -->
+        <section id="sec-set" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm">
+                <h3 class="font-bold mb-4">🆕 新增品項建檔</h3>
+                <input id="new-id" placeholder="貨號" class="w-full p-3 bg-slate-50 rounded-xl mb-3 outline-none">
+                <input id="new-name" placeholder="品名" class="w-full p-3 bg-slate-50 rounded-xl mb-3 outline-none">
+                <input id="new-qty" type="number" placeholder="起始庫存" class="w-full p-3 bg-slate-50 rounded-xl mb-4 outline-none">
+                <button onclick="addNewItem()" class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold">建立品項</button>
+            </div>
+        </section>
+    </main>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbwK-DI7YU5iYgWoDlVXarDSpbV9ZMRn_fzRspteD3hvFYy24e1MsmZOtBpNnH375hbZjA/exec"; // ⚠️務必更換
-        let currentData = []; // 存儲目前顯示的原始資料供搜尋使用
-        let currentTab = 'inventory';
+        const API_URL = "https://script.google.com/macros/s/AKfycbwK-DI7YU5iYgWoDlVXarDSpbV9ZMRn_fzRspteD3hvFYy24e1MsmZOtBpNnH375hbZjA/exec"; 
+        let inventory = [];
+        let logs = [];
+        let currentType = 'IN';
 
-        // 1. 檢視庫存總覽
-        async function viewInventory() {
-            currentTab = 'inventory';
-            showLoading();
-            const res = await fetch(`${API_URL}?action=getInventory`);
-            currentData = await res.json();
-            renderInventory(currentData);
-        }
-
-        function renderInventory(data) {
-            let html = `<table class="w-full text-left">
-                <thead class="border-b"><tr><th class="py-2">貨號</th><th>品名</th><th>總庫存</th><th>操作</th></tr></thead>
-                <tbody>`;
-            data.forEach(item => {
-                html += `<tr class="border-b hover:bg-slate-50">
-                    <td class="py-3 font-mono">${item.id}</td>
-                    <td>${item.name}</td>
-                    <td class="font-bold text-blue-600">${item.stock}</td>
-                    <td class="space-x-2">
-                        <button onclick="showQuickAdd('${item.id}', '${item.name}')" class="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded">進/出貨</button>
-                        <button onclick="deleteProduct('${item.id}')" class="text-xs text-red-400">刪除</button>
-                    </td>
-                </tr>`;
+        // 切換頁面
+        function switchTab(tab) {
+            ['op', 'inv', 'log', 'set'].forEach(t => {
+                document.getElementById('sec-'+t).classList.add('hidden');
+                document.getElementById('tab-'+t).classList.remove('tab-active');
             });
-            html += `</tbody></table>`;
-            document.getElementById('mainContent').innerHTML = html;
+            document.getElementById('sec-'+tab).classList.remove('hidden');
+            document.getElementById('tab-'+tab).classList.add('tab-active');
+            if(tab === 'inv') refreshInventory();
+            if(tab === 'log') refreshLogs();
+            if(tab === 'op') updateOpSelect();
         }
 
-        // 2. 檢視歷史明細
-        async function viewLogs() {
-            currentTab = 'logs';
-            showLoading();
+        // 設定進出貨類型
+        function setOpType(type) {
+            currentType = type;
+            const btnIn = document.getElementById('btn-in');
+            const btnOut = document.getElementById('btn-out');
+            if(type === 'IN') {
+                btnIn.className = "py-4 rounded-xl border-2 border-emerald-500 text-emerald-600 font-bold bg-emerald-50";
+                btnOut.className = "py-4 rounded-xl border-2 border-slate-200 text-slate-400 font-bold";
+            } else {
+                btnOut.className = "py-4 rounded-xl border-2 border-rose-500 text-rose-600 font-bold bg-rose-50";
+                btnIn.className = "py-4 rounded-xl border-2 border-slate-200 text-slate-400 font-bold";
+            }
+        }
+
+        // 更新下拉選單
+        async function updateOpSelect() {
+            const res = await fetch(`${API_URL}?action=getInventory`);
+            inventory = await res.json();
+            const select = document.getElementById('op-id');
+            select.innerHTML = inventory.map(i => `<option value="${i.id}">${i.name} (${i.id})</option>`).join('');
+        }
+
+        // 送出操作
+        async function submitOp() {
+            const id = document.getElementById('op-id').value;
+            const amt = document.getElementById('op-amt').value;
+            const note = document.getElementById('op-note').value;
+            if(!amt || amt <= 0) return alert("請輸入有效數量");
+
+            document.getElementById('btn-submit').innerText = "傳送中...";
+            document.getElementById('btn-submit').disabled = true;
+
+            await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'addLog', id, amount: parseFloat(amt), type: currentType, note })
+            });
+
+            alert("紀錄成功！");
+            document.getElementById('op-amt').value = "";
+            document.getElementById('op-note').value = "";
+            document.getElementById('btn-submit').innerText = "確認送出";
+            document.getElementById('btn-submit').disabled = false;
+        }
+
+        // 讀取庫存與搜尋
+        async function refreshInventory() {
+            const res = await fetch(`${API_URL}?action=getInventory`);
+            inventory = await res.json();
+            renderInv(inventory);
+        }
+
+        function renderInv(data) {
+            document.getElementById('inv-list').innerHTML = data.map(i => `
+                <div class="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-white">
+                    <div>
+                        <div class="font-bold text-slate-700">${i.name}</div>
+                        <div class="text-[10px] text-slate-400 font-mono">${i.id}</div>
+                    </div>
+                    <div class="text-2xl font-mono font-bold text-blue-600">${i.stock}</div>
+                </div>
+            `).join('');
+        }
+
+        function filterInv(q) {
+            renderInv(inventory.filter(i => i.name.includes(q) || i.id.includes(q)));
+        }
+
+        // 讀取歷史與搜尋
+        async function refreshLogs() {
             const res = await fetch(`${API_URL}?action=getLogs`);
-            currentData = await res.json();
-            renderLogs(currentData);
+            logs = await res.json();
+            renderLogs(logs);
         }
 
         function renderLogs(data) {
-            let html = `<table class="w-full text-left text-sm">
-                <thead class="border-b text-slate-400"><tr><th>時間</th><th>品項</th><th>變動</th><th>備註</th><th>管理</th></tr></thead>
-                <tbody>`;
-            data.forEach(log => {
-                const color = log.amount > 0 ? 'text-emerald-600' : 'text-rose-600';
-                html += `<tr class="border-b">
-                    <td class="py-3">${log.time}</td>
-                    <td>${log.id}</td>
-                    <td class="${color} font-bold">${log.amount > 0 ? '+'+log.amount : log.amount}</td>
-                    <td class="text-slate-500 text-xs">${log.note}</td>
-                    <td>
-                        <button onclick="editLogPrompt('${log.rowIdx}', '${log.amount}', '${log.note}')" class="text-blue-500 mr-2">改</button>
-                        <button onclick="deleteLog('${log.rowIdx}')" class="text-red-500">刪</button>
-                    </td>
-                </tr>`;
+            document.getElementById('log-list').innerHTML = data.map(l => `
+                <div class="bg-white p-4 rounded-xl shadow-sm text-sm relative">
+                    <div class="text-[10px] text-slate-300 mb-1">${l.time}</div>
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="font-bold">${l.id}</span>
+                            <p class="text-slate-500 text-xs mt-1">${l.note || '無備註'}</p>
+                        </div>
+                        <div class="font-bold ${l.amount > 0 ? 'text-emerald-500' : 'text-rose-500'}">
+                            ${l.amount > 0 ? '+' : ''}${l.amount}
+                        </div>
+                    </div>
+                    <div class="mt-2 flex gap-4 text-[10px] text-blue-400">
+                        <button onclick="deleteLogEntry(${l.rowIdx})">刪除紀錄</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function deleteLogEntry(idx) {
+            if(confirm("確定刪除此紀錄？")) {
+                await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteLog', rowIdx: idx }) });
+                refreshLogs();
+            }
+        }
+
+        function filterLog(q) {
+            renderLogs(logs.filter(l => l.id.includes(q) || l.note.includes(q) || l.time.includes(q)));
+        }
+
+        // 新增品項建檔
+        async function addNewItem() {
+            const id = document.getElementById('new-id').value;
+            const name = document.getElementById('new-name').value;
+            const initial = document.getElementById('new-qty').value;
+            if(!id || !name) return alert("請填寫完整資訊");
+            
+            await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'addProduct', id, name, initial })
             });
-            html += `</tbody></table>`;
-            document.getElementById('mainContent').innerHTML = html;
+            alert("品項已建立！");
+            switchTab('inv');
         }
 
-        // --- 搜尋功能 ---
-        function filterData() {
-            const term = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = currentData.filter(item => 
-                Object.values(item).some(val => String(val).toLowerCase().includes(term))
-            );
-            currentTab === 'inventory' ? renderInventory(filtered) : renderLogs(filtered);
-        }
-
-        // --- 動作功能 ---
-        async function showQuickAdd(id, name) {
-            const amt = prompt(`[${name}] 請輸入變動數量 (正數為進貨，負數為出貨):`, "1");
-            const note = prompt(`備註 (可留空):`, "");
-            if (amt === null) return;
-            await post({ action: 'addLog', id: id, amount: parseFloat(amt), type: 'IN', note: note });
-            viewInventory();
-        }
-
-        async function editLogPrompt(rowIdx, oldAmt, oldNote) {
-            const amt = prompt("修改數量:", oldAmt);
-            const note = prompt("修改備註:", oldNote);
-            if (amt === null) return;
-            await post({ action: 'editLog', rowIdx: rowIdx, amount: parseFloat(amt), note: note });
-            viewLogs();
-        }
-
-        function viewAddProduct() {
-            document.getElementById('mainContent').innerHTML = `
-                <div class="max-w-sm space-y-4">
-                    <h2 class="font-bold">新增產品品項</h2>
-                    <input id="pId" placeholder="貨號" class="w-full p-2 border rounded">
-                    <input id="pName" placeholder="品名" class="w-full p-2 border rounded">
-                    <input id="pQty" type="number" placeholder="初始數量" class="w-full p-2 border rounded">
-                    <button onclick="submitProduct()" class="w-full bg-emerald-500 text-white py-2 rounded">建立</button>
-                </div>`;
-        }
-
-        async function submitProduct() {
-            await post({ 
-                action: 'addProduct', 
-                id: document.getElementById('pId').value, 
-                name: document.getElementById('pName').value, 
-                initial: document.getElementById('pQty').value 
-            });
-            viewInventory();
-        }
-
-        async function deleteLog(rowIdx) { if(confirm("確定刪除此紀錄？")) { await post({action: 'deleteLog', rowIdx: rowIdx}); viewLogs(); } }
-        async function deleteProduct(id) { if(confirm("確定刪除此貨品？")) { await post({action: 'deleteProduct', id: id}); viewInventory(); } }
-
-        // --- 工具 ---
-        async function post(data) {
-            showLoading();
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify(data) });
-        }
-        function showLoading() { document.getElementById('mainContent').innerHTML = "處理中，請稍候..."; }
-        
-        window.onload = viewInventory;
+        // 初始化
+        window.onload = updateOpSelect;
     </script>
 </body>
 </html>
