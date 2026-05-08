@@ -11,9 +11,14 @@
         .item-name { font-size: 1.15rem; font-weight: 700; color: #1e293b; }
         .item-id { font-size: 0.85rem; color: #64748b; font-family: monospace; }
         .loading { opacity: 0.5; pointer-events: none; }
+        /* 提示動畫 */
+        #toast { transition: opacity 0.3s; pointer-events: none; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800">
+    <!-- 頂部提示框 -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-6 py-2 rounded-full shadow-lg z-[100] opacity-0 text-sm font-bold">已同步至後台</div>
+
     <nav class="sticky top-0 bg-white shadow-md z-50">
         <div class="flex justify-around text-base">
             <button onclick="switchTab('manage')" id="tab-manage" class="flex-1 py-4 tab-active">⚙️ 貨品管理</button>
@@ -22,7 +27,6 @@
     </nav>
 
     <main id="main-content" class="max-w-md mx-auto p-4 mb-20">
-        <!-- 1. 貨品管理分頁 -->
         <section id="sec-manage" class="space-y-6">
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                 <h3 class="text-sm font-black text-blue-600 mb-4 border-l-4 border-blue-600 pl-2">快速進出貨</h3>
@@ -57,7 +61,6 @@
             </div>
         </section>
 
-        <!-- 2. 數據總覽分頁 -->
         <section id="sec-status" class="hidden space-y-6">
             <div class="bg-white p-4 rounded-2xl shadow-sm">
                 <div class="flex justify-between items-end mb-4">
@@ -93,12 +96,18 @@
         let logs = [];
         let currentType = 'IN';
 
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.opacity = '1';
+            setTimeout(() => t.style.opacity = '0', 2000);
+        }
+
         function getName(id) {
             const item = inventory.find(i => i.id === id);
             return item ? item.name : id;
         }
 
-        // 時間格式化函數：將原始字串轉為 YYYY/MM/DD HH:mm
         function formatDateTime(dtStr) {
             if(!dtStr) return '-';
             try {
@@ -109,9 +118,7 @@
                 const hh = String(date.getHours()).padStart(2, '0');
                 const mm = String(date.getMinutes()).padStart(2, '0');
                 return `${y}/${m}/${d} ${hh}:${mm}`;
-            } catch(e) {
-                return dtStr;
-            }
+            } catch(e) { return dtStr; }
         }
 
         async function switchTab(tab) {
@@ -186,23 +193,35 @@
             });
         }
 
+        // --- 核心優化：樂觀更新函數 ---
         async function submitOp() {
             const id = document.getElementById('op-id').value;
-            const amt = document.getElementById('op-amt').value;
+            const amtStr = document.getElementById('op-amt').value;
             const note = document.getElementById('op-note').value;
-            if(!amt) return alert("請輸入數量");
-
-            const btn = document.getElementById('btn-submit');
-            btn.innerText = "同步中...";
-            btn.disabled = true;
-
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'addLog', id, amount: parseFloat(amt), type: currentType, note }) });
+            if(!amtStr) return alert("請輸入數量");
             
+            const amt = parseFloat(amtStr);
+            const actualChange = currentType === 'IN' ? amt : -amt;
+
+            // 1. 立即更新本地數據 (不必等伺服器)
+            const item = inventory.find(i => i.id === id);
+            if(item) item.stock += actualChange;
+            
+            // 2. 立即反映在 UI 上
+            renderAll();
             document.getElementById('op-amt').value = "";
             document.getElementById('op-note').value = "";
-            btn.innerText = "確認提交";
-            btn.disabled = false;
-            refreshData(false);
+            showToast("✅ 已記錄 (同步中...)");
+
+            // 3. 在背景默默發送給 Google
+            fetch(API_URL, { 
+                method: 'POST', 
+                mode: 'no-cors', // 增加傳輸效率
+                body: JSON.stringify({ action: 'addLog', id, amount: amt, type: currentType, note }) 
+            }).then(() => {
+                // 同步完後悄悄刷新一次確保精準
+                refreshData(false);
+            });
         }
 
         async function addNewItem() {
